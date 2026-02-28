@@ -1,0 +1,51 @@
+# PROJECT: AtlasMotion (Real-Time Logistics)
+# SENSEI LESSON: KRaft-based Kafka Infrastructure
+
+services:
+  broker:
+    image: confluentinc/cp-kafka:7.8.0
+    hostname: broker
+    container_name: broker
+    ports:
+      - "9094:9092" # Changed from 9092 to 9094 to avoid address conflict
+      - "9101:9101" # JMX Port for metrics
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      # The Quorum config tells the broker who the controllers are (itself, in this single-node setup)
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@broker:29093"
+
+      # Listeners: How clients and other brokers connect
+      # PLAINTEXT_HOST is what your Rust/Actix app on localhost will use to connect
+      KAFKA_LISTENERS: "PLAINTEXT://broker:29092,CONTROLLER://broker:29093,PLAINTEXT_HOST://0.0.0.0:9092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9094"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+
+      # Development settings (Do not use in Production)
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+      # Where the data actually lives
+      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
+      # A unique ID for your cluster
+      CLUSTER_ID: "AtlasMotionCluster0001"
+
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:7.8.0
+    hostname: control-center
+    container_name: control-center
+    depends_on:
+      - broker
+    ports:
+      - "9021:9021" # Open your browser here!
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: "broker:29092"
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+      PORT: 9021
